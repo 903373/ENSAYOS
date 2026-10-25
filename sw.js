@@ -1,5 +1,5 @@
 // Cachea la app para que abra sin cobertura. Las llamadas a Google van siempre por red.
-const CACHE = 'ensayos-v3';
+const CACHE = 'ensayos-v4';
 const ARCHIVOS = ['./', './index.html', './qr.html', './manifest.json', './icon.svg', './icon-192.png', './icon-512.png',
   './vendor/jsQR.js', './vendor/qrcode.js'];
 

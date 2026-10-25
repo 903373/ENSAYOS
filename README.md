@@ -36,6 +36,9 @@ Abre `…/qr.html` en el ordenador → *Cargar desde la hoja* → Imprimir (9 ta
 ## Qué verás en la hoja
 - **Resumen**: asistencias y % de cada uno con colores (se actualiza solo).
 - **Asistencia**: registro con fecha, hora y quién validó.
-- **Matriz**: tabla persona × ensayo con ✓ (*🎺 Cofradía › Actualizar matriz*).
+- **Matriz**: tabla persona × ensayo con ✓ (se actualiza sola).
 
-Dar de baja a alguien: desmarca *Activo* en Miembros (su historial se conserva).
+Si algo sale raro en Resumen o Matriz: *🎺 Cofradía › Reparar Resumen y Matriz*.
+Para borrar un ensayo entero: borra sus filas en **Asistencia**; desaparece de los móviles al sincronizar.
+
+Dar de baja a alguien: marca la casilla *Baja* en Miembros (su historial se conserva). Casilla vacía = activo.

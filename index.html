@@ -164,7 +164,7 @@ let miembros = LS.get('miembros', []);          // [{id,nombre,instrumento}]
 let cola     = LS.get('cola', []);              // registros pendientes de subir
 let hechos   = LS.get('hechos', {});            // {"ensayo|id": {ts, sync:bool}}
 let ensayos  = LS.get('ensayos', []);           // nombres usados
-let stream   = null, escaneando = false, bloqueo = false, sincronizando = false;
+let ctx, stream = null, escaneando = false, bloqueo = false, sincronizando = false;
 
 const $ = s => document.querySelector(s);
 const mapa = () => Object.fromEntries(miembros.map(m => [m.id, m]));
@@ -206,7 +206,6 @@ async function sincronizar(silencioso){
   sincronizando = true; pintarEstado();
   try{
     if (navigator.onLine === false) throw new Error('offline');
-    await cargarMiembros();
     if (cola.length){
       const lote = cola.slice(0, 200);
       const j = await api({action: 'lote', items: lote, validador: cfg.yo});
@@ -220,19 +219,18 @@ async function sincronizar(silencioso){
       });
       LS.set('cola', cola); LS.set('hechos', hechos);
     }
-    // traer lo que han marcado otros móviles en este ensayo
-    const e = ensayoActual();
-    if (e){
-      const j = await api({action: 'ensayo', ensayo: e});
-      const enHoja = new Set(j.ids);
-      const altasPend = new Set(cola.filter(it => it.op !== 'baja' && it.ensayo === e).map(it => it.id));
-      const bajasPend = new Set(cola.filter(it => it.op === 'baja' && it.ensayo === e).map(it => it.id));
-      Object.keys(hechos).forEach(k => {                       // quitado desde otro móvil o en la hoja
-        if (k.startsWith(e + '|')){ const id = k.slice(e.length + 1); if (!enHoja.has(id) && !altasPend.has(id)) delete hechos[k]; }
-      });
-      enHoja.forEach(id => { if (bajasPend.has(id)) return; const k = e + '|' + id; if (!hechos[k]) hechos[k] = {ts: Date.now(), sync: true}; else hechos[k].sync = true; });
-      LS.set('hechos', hechos);
-    }
+    // la hoja manda: se rehace el estado local con lo que hay en ella + lo pendiente de subir
+    const st = await api({action: 'estado'});
+    miembros = st.miembros; LS.set('miembros', miembros);
+    const nuevo = {};
+    st.asistencia.forEach(f => { const k = f.ensayo + '|' + f.id; nuevo[k] = {ts: (hechos[k] && hechos[k].ts) || Date.now(), sync: true}; });
+    cola.forEach(it => {
+      const k = it.ensayo + '|' + it.id;
+      if (it.op === 'baja') delete nuevo[k]; else nuevo[k] = {ts: it.ts, sync: false};
+    });
+    hechos = nuevo; LS.set('hechos', hechos);
+    ensayos = [...new Set([...cola.map(it => it.ensayo), ...st.asistencia.map(f => f.ensayo).reverse()])].slice(0, 30);
+    LS.set('ensayos', ensayos); pintarEnsayos();
     if (!silencioso) aviso('ok', '✓', 'Sincronizado', '', 'Todo guardado en la hoja');
   }catch(err){
     if (!silencioso) aviso('err', '⚠', 'Sin conexión', '', 'Se guarda en el móvil y se subirá luego');
@@ -269,6 +267,8 @@ const detector = ('BarcodeDetector' in window) ? (() => { try{ return new Barcod
 function camMsg(t){ $('#camMsg').textContent = t; $('#camMsg').classList.toggle('oculto', !t); }
 
 async function empezarCam(){
+  try{ ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); ctx.resume && ctx.resume(); }catch(_){}
+  ultimo = {txt: '', t: 0}; bloqueo = false;
   if (!ensayoActual()){ aviso('err', '⚠', 'Pon nombre al ensayo', '', ''); return; }
   if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
     camMsg('La cámara solo funciona abriendo la app desde su web https (GitHub Pages), no como archivo ni en vista previa. Mientras, usa 📸 Foto.');
@@ -304,14 +304,26 @@ async function leerQR(fuente, w, h){
   return r ? r.data : null;
 }
 
+let ultimo = {txt: '', t: 0};
 async function bucle(){
   const v = $('#video');
   while (escaneando){
-    if (v.readyState >= 2 && !bloqueo){
-      const txt = await leerQR(v, v.videoWidth, v.videoHeight);
-      if (txt && escaneando){ bloqueo = true; registrar(txt); setTimeout(() => bloqueo = false, 1600); }
-    }
-    await new Promise(r => setTimeout(r, 120));
+    try{
+      if (v.paused || v.ended) await v.play().catch(() => {});      // iPhone a veces pausa el vídeo
+      if (v.readyState >= 2 && v.videoWidth && !bloqueo){
+        const txt = await leerQR(v, v.videoWidth, v.videoHeight);
+        const ahora = Date.now();
+        if (txt && escaneando){
+          if (txt === ultimo.txt && ahora - ultimo.t < 4000){ ultimo.t = ahora; }   // el mismo QR sigue delante: se ignora
+          else {
+            ultimo = {txt, t: ahora};
+            bloqueo = true; registrar(txt);
+            setTimeout(() => bloqueo = false, 900);                 // listo para el siguiente enseguida
+          }
+        }
+      }
+    }catch(err){ console.warn(err); }                               // un fallo puntual no para el escáner
+    await new Promise(r => setTimeout(r, 100));
   }
 }
 
@@ -357,12 +369,11 @@ function aviso(tipo, ico, nom, ins, msg){
   f.querySelector('.nom').textContent = nom;
   f.querySelector('.ins').textContent = ins || '';
   f.querySelector('.msg').textContent = msg || '';
-  clearTimeout(aviso._t); aviso._t = setTimeout(() => f.classList.add('oculto'), tipo === 'ok' ? 1100 : 1700);
+  clearTimeout(aviso._t); aviso._t = setTimeout(() => f.classList.add('oculto'), tipo === 'ok' ? 800 : 1400);
 }
 $('#flash').onclick = () => $('#flash').classList.add('oculto');
 
 function vibrar(p){ try{ navigator.vibrate && navigator.vibrate(p); }catch(_){} }
-let ctx;
 function pitido(){
   try{
     ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
