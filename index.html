@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#4a1d5e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Ensayos CJH 2027</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --morado:#4a1d5e; --morado-2:#6b2d85; --dorado:#c9a227; --fondo:#f6f1f8;
+    --texto:#22152a; --suave:#7a6a83; --tarjeta:#fff; --ok:#1e8e4e; --dup:#d48a00; --err:#c0392b;
+    --radio:18px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--fondo);color:var(--texto);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{background:var(--morado);color:#fff;padding:calc(env(safe-area-inset-top) + 14px) 16px 14px;
+    display:flex;align-items:center;gap:12px;border-bottom:3px solid var(--dorado)}
+  header h1{font-size:18px;margin:0;flex:1;letter-spacing:.3px}
+  header small{display:block;font-weight:400;opacity:.8;font-size:12px}
+  .pill{font-size:12px;padding:5px 10px;border-radius:99px;background:rgba(255,255,255,.15);white-space:nowrap}
+  .pill.off{background:var(--err)}
+  .pill.pend{background:var(--dup)}
+  main{padding:16px;max-width:560px;margin:0 auto}
+  .card{background:var(--tarjeta);border-radius:var(--radio);padding:16px;margin-bottom:14px;
+    box-shadow:0 2px 10px rgba(74,29,94,.08)}
+  label{font-size:13px;color:var(--suave);display:block;margin:0 0 6px}
+  input,select{width:100%;font-size:17px;padding:12px 14px;border:1.5px solid #ddd0e3;border-radius:12px;
+    background:#fff;color:var(--texto)}
+  input:focus,select:focus{outline:none;border-color:var(--morado-2)}
+  .fila{display:flex;gap:10px}
+  .fila>*{flex:1}
+  button{font:inherit;font-size:17px;font-weight:600;border:0;border-radius:14px;padding:14px 16px;cursor:pointer}
+  .primario{background:var(--morado);color:#fff;width:100%}
+  .secundario{background:#ece3f1;color:var(--morado)}
+  .chico{font-size:14px;padding:9px 12px;border-radius:10px}
+  #lector{width:100%;border-radius:var(--radio);overflow:hidden;background:#000;aspect-ratio:1/1;position:relative}
+  #lector video{object-fit:cover}
+  #marco{position:absolute;inset:18%;border:3px solid rgba(255,255,255,.85);border-radius:22px;pointer-events:none;
+    box-shadow:0 0 0 999px rgba(0,0,0,.25)}
+  .contador{display:flex;justify-content:space-between;align-items:baseline}
+  .contador b{font-size:34px;color:var(--morado)}
+  .lista{list-style:none;margin:0;padding:0}
+  .lista li{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f0e8f4}
+  .lista li:last-child{border-bottom:0}
+  .lista .n{flex:1}
+  .lista .n small{display:block;color:var(--suave);font-size:12px}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--ok);flex:none}
+  .dot.pend{background:var(--dup)}
+  .faltan li .dot{background:#ccc}
+  .oculto{display:none!important}
+  /* Pantalla completa de resultado */
+  #flash{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    color:#fff;text-align:center;padding:24px;z-index:50;transition:opacity .2s}
+  #flash.ok{background:var(--ok)} #flash.dup{background:var(--dup)} #flash.err{background:var(--err)}
+  #flash .ico{font-size:96px;line-height:1}
+  #flash .nom{font-size:30px;font-weight:700;margin-top:12px}
+  #flash .ins{font-size:18px;opacity:.9;margin-top:4px}
+  #flash .msg{font-size:16px;margin-top:18px;opacity:.9}
+  .tabs{display:flex;gap:8px;margin-bottom:10px}
+  .tabs button{flex:1;font-size:14px;padding:10px}
+  .tabs .act{background:var(--morado);color:#fff}
+  .aviso{font-size:13px;color:var(--suave);margin:8px 0 0}
+  #buscar{margin-bottom:8px}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎺 Control de Ensayos<small>Sección de Instrumentos · SS 2027</small></h1>
+  <span id="estadoRed" class="pill">…</span>
+</header>
+
+<main>
+  <!-- CONFIGURACIÓN (primera vez) -->
+  <section id="vConfig" class="oculto">
+    <div class="card">
+      <h2 style="margin-top:0">Configuración</h2>
+      <label>URL del script (Apps Script)</label>
+      <input id="cfgUrl" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off">
+      <div style="height:12px"></div>
+      <label>PIN</label>
+      <input id="cfgPin" type="password" inputmode="text" autocomplete="off">
+      <div style="height:12px"></div>
+      <label>Tu nombre (quién valida)</label>
+      <input id="cfgYo" placeholder="Ej. Raúl" autocomplete="name">
+      <div style="height:16px"></div>
+      <button class="primario" id="btnGuardarCfg">Guardar y conectar</button>
+      <p class="aviso" id="cfgMsg"></p>
+    </div>
+  </section>
+
+  <!-- PRINCIPAL -->
+  <section id="vMain" class="oculto">
+    <div class="card">
+      <label>Ensayo</label>
+      <input id="ensayo" list="ensayosPrevios" autocomplete="off">
+      <datalist id="ensayosPrevios"></datalist>
+      <p class="aviso">Todos los móviles deben usar el mismo nombre de ensayo.</p>
+    </div>
+
+    <div class="card" style="padding:10px">
+      <div id="lector"><div id="marco"></div></div>
+      <div class="fila" style="margin-top:10px">
+        <button class="primario" id="btnCam">📷 Empezar a escanear</button>
+      </div>
+      <div class="fila" style="margin-top:8px">
+        <button class="secundario chico" id="btnManual">⌨️ Marcar a mano</button>
+        <button class="secundario chico" id="btnSync">🔄 Sincronizar</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="contador">
+        <span>Presentes</span>
+        <span><b id="nPres">0</b> / <span id="nTotal">0</span></span>
+      </div>
+      <div class="tabs" style="margin-top:12px">
+        <button class="secundario act" data-tab="pres">Presentes</button>
+        <button class="secundario" data-tab="faltan">Faltan</button>
+      </div>
+      <ul class="lista" id="listaPres"></ul>
+      <ul class="lista faltan oculto" id="listaFaltan"></ul>
+    </div>
+
+    <div style="text-align:center;margin:20px 0 40px">
+      <button class="secundario chico" id="btnAjustes">⚙️ Ajustes</button>
+    </div>
+  </section>
+
+  <!-- MARCADO MANUAL -->
+  <section id="vManual" class="oculto">
+    <div class="card">
+      <h2 style="margin-top:0">Marcar a mano</h2>
+      <input id="buscar" placeholder="Buscar nombre o número…" autocomplete="off">
+      <ul class="lista" id="listaManual"></ul>
+      <div style="height:12px"></div>
+      <button class="secundario" style="width:100%" id="btnVolver">← Volver</button>
+    </div>
+  </section>
+</main>
+
+<div id="flash" class="oculto"><div class="ico"></div><div class="nom"></div><div class="ins"></div><div class="msg"></div></div>
+
+<script src="vendor/html5-qrcode.min.js"></script>
+<script>
+"use strict";
+/* ─────────── Estado local (todo se guarda en el móvil y se sube cuando hay red) ─────────── */
+const LS = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(_){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){} }
+};
+let cfg      = LS.get('cfg', null);             // {url,pin,yo}
+let miembros = LS.get('miembros', []);          // [{id,nombre,instrumento}]
+let cola     = LS.get('cola', []);              // registros pendientes de subir
+let hechos   = LS.get('hechos', {});            // {"ensayo|id": {ts, sync:bool}}
+let ensayos  = LS.get('ensayos', []);           // nombres usados
+let scanner  = null, escaneando = false, bloqueo = false, sincronizando = false;
+
+const $ = s => document.querySelector(s);
+const mapa = () => Object.fromEntries(miembros.map(m => [m.id, m]));
+const hoy = () => new Date().toLocaleDateString('es-ES', {day:'2-digit', month:'2-digit', year:'numeric'});
+const ensayoActual = () => $('#ensayo').value.trim();
+
+function normalizar(txt){
+  let s = String(txt || '').trim().toUpperCase();
+  if (s.startsWith('CJH:')) s = s.slice(4);
+  return /^\d+$/.test(s) ? s.padStart(3, '0') : s;
+}
+
+/* ─────────── Vistas ─────────── */
+function ver(id){
+  ['#vConfig','#vMain','#vManual'].forEach(v => $(v).classList.toggle('oculto', v !== id));
+  if (id !== '#vMain') pararCam();
+}
+
+/* ─────────── Red con Apps Script ─────────── */
+async function api(body){
+  const r = await fetch(cfg.url, {
+    method: 'POST',
+    headers: {'Content-Type': 'text/plain;charset=utf-8'}, // evita preflight CORS
+    body: JSON.stringify({...body, pin: cfg.pin}),
+    redirect: 'follow'
+  });
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.error || 'Error del servidor');
+  return j;
+}
+
+async function cargarMiembros(){
+  const j = await api({action: 'miembros'});
+  miembros = j.miembros; LS.set('miembros', miembros);
+}
+
+async function sincronizar(silencioso){
+  if (sincronizando || !cfg) return;
+  sincronizando = true; pintarEstado();
+  try{
+    if (navigator.onLine === false) throw new Error('offline');
+    await cargarMiembros();
+    if (cola.length){
+      const lote = cola.slice(0, 200);
+      const j = await api({action: 'lote', items: lote, validador: cfg.yo});
+      const res = Object.fromEntries(j.resultados.map(r => [r.uid, r.estado]));
+      cola = cola.filter(it => !(it.uid in res));
+      lote.forEach(it => {
+        const k = it.ensayo + '|' + it.id;
+        if (res[it.uid] === 'ok' || res[it.uid] === 'duplicado') { if (hechos[k]) hechos[k].sync = true; }
+        else if (res[it.uid]) delete hechos[k]; // desconocido / error → se quita
+      });
+      LS.set('cola', cola); LS.set('hechos', hechos);
+    }
+    // traer lo que han marcado otros móviles en este ensayo
+    const e = ensayoActual();
+    if (e){
+      const j = await api({action: 'ensayo', ensayo: e});
+      j.ids.forEach(id => { const k = e + '|' + id; if (!hechos[k]) hechos[k] = {ts: Date.now(), sync: true}; else hechos[k].sync = true; });
+      LS.set('hechos', hechos);
+    }
+    if (!silencioso) aviso('ok', '✓', 'Sincronizado', '', 'Todo guardado en la hoja');
+  }catch(err){
+    if (!silencioso) aviso('err', '⚠', 'Sin conexión', '', 'Se guarda en el móvil y se subirá luego');
+  }finally{
+    sincronizando = false; pintarEstado(); pintarListas();
+    if (cola.length) setTimeout(() => sincronizar(true), 1500); // quedan más
+  }
+}
+
+/* ─────────── Registrar asistencia ─────────── */
+function registrar(idBruto){
+  const e = ensayoActual();
+  if (!e){ aviso('err', '⚠', 'Pon nombre al ensayo', '', ''); return; }
+  const id = normalizar(idBruto);
+  const m = mapa()[id];
+  if (!m){ aviso('err', '✕', 'QR no reconocido', id, 'No está en la lista de miembros'); vibrar([80,60,80,60,80]); return; }
+  const k = e + '|' + id;
+  if (hechos[k]){ aviso('dup', '!', m.nombre, m.instrumento, 'Ya estaba marcado'); vibrar([60,60,60]); return; }
+  const ts = Date.now();
+  hechos[k] = {ts, sync: false};
+  cola.push({uid: ts + '-' + id + '-' + Math.random().toString(36).slice(2,6), id, ensayo: e, ts, validador: cfg.yo});
+  LS.set('hechos', hechos); LS.set('cola', cola);
+  if (!ensayos.includes(e)){ ensayos.unshift(e); ensayos = ensayos.slice(0, 30); LS.set('ensayos', ensayos); pintarEnsayos(); }
+  aviso('ok', '✓', m.nombre, m.instrumento, 'Asistencia registrada');
+  vibrar(120); pitido();
+  pintarListas(); pintarEstado();
+  clearTimeout(registrar._t); registrar._t = setTimeout(() => sincronizar(true), 800);
+}
+
+/* ─────────── Cámara ─────────── */
+async function empezarCam(){
+  if (!ensayoActual()){ aviso('err', '⚠', 'Pon nombre al ensayo', '', ''); return; }
+  scanner = scanner || new Html5Qrcode('lector', {verbose: false});
+  try{
+    await scanner.start({facingMode: 'environment'}, {fps: 12, qrbox: (w,h) => { const s = Math.floor(Math.min(w,h)*0.64); return {width:s, height:s}; }},
+      txt => { if (bloqueo) return; bloqueo = true; registrar(txt); setTimeout(() => bloqueo = false, 1600); },
+      () => {});
+    escaneando = true; $('#btnCam').textContent = '⏸ Parar cámara';
+  }catch(err){
+    aviso('err', '📷', 'No se pudo abrir la cámara', '', 'Da permiso de cámara al navegador (la web debe abrirse con https)');
+  }
+}
+async function pararCam(){
+  if (scanner && escaneando){ try{ await scanner.stop(); }catch(_){} }
+  escaneando = false; $('#btnCam').textContent = '📷 Empezar a escanear';
+}
+
+/* ─────────── Interfaz ─────────── */
+function aviso(tipo, ico, nom, ins, msg){
+  const f = $('#flash');
+  f.className = tipo;
+  f.querySelector('.ico').textContent = ico;
+  f.querySelector('.nom').textContent = nom;
+  f.querySelector('.ins').textContent = ins || '';
+  f.querySelector('.msg').textContent = msg || '';
+  clearTimeout(aviso._t); aviso._t = setTimeout(() => f.classList.add('oculto'), tipo === 'ok' ? 1100 : 1700);
+}
+$('#flash').onclick = () => $('#flash').classList.add('oculto');
+
+function vibrar(p){ try{ navigator.vibrate && navigator.vibrate(p); }catch(_){} }
+let ctx;
+function pitido(){
+  try{
+    ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.value = 880; g.gain.value = .08; o.connect(g); g.connect(ctx.destination);
+    o.start(); o.stop(ctx.currentTime + .12);
+  }catch(_){}
+}
+
+function pintarEstado(){
+  const p = $('#estadoRed');
+  p.className = 'pill';
+  if (sincronizando){ p.textContent = '⟳ Subiendo…'; return; }
+  if (navigator.onLine === false){ p.classList.add('off'); p.textContent = `Sin red · ${cola.length} pend.`; return; }
+  if (cola.length){ p.classList.add('pend'); p.textContent = `${cola.length} pendientes`; return; }
+  p.textContent = '✓ Guardado';
+}
+
+function pintarEnsayos(){
+  $('#ensayosPrevios').innerHTML = ensayos.map(e => `<option value="${esc(e)}">`).join('');
+}
+
+function pintarListas(){
+  const e = ensayoActual(), mp = mapa();
+  const pres = Object.entries(hechos).filter(([k]) => k.startsWith(e + '|'))
+    .map(([k, v]) => ({id: k.slice(e.length + 1), ...v})).sort((a, b) => b.ts - a.ts);
+  const setPres = new Set(pres.map(p => p.id));
+  $('#nPres').textContent = pres.length;
+  $('#nTotal').textContent = miembros.length;
+  $('#listaPres').innerHTML = pres.map(p => {
+    const m = mp[p.id] || {nombre: p.id, instrumento: ''};
+    const h = new Date(p.ts).toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'});
+    return `<li><span class="dot ${p.sync ? '' : 'pend'}"></span><span class="n">${esc(m.nombre)}<small>${esc(m.instrumento)} · ${h}</small></span></li>`;
+  }).join('') || '<li><span class="n" style="color:var(--suave)">Nadie todavía</span></li>';
+  $('#listaFaltan').innerHTML = miembros.filter(m => !setPres.has(m.id))
+    .sort((a, b) => a.instrumento.localeCompare(b.instrumento) || a.nombre.localeCompare(b.nombre))
+    .map(m => `<li><span class="dot"></span><span class="n">${esc(m.nombre)}<small>${esc(m.instrumento)} · nº ${m.id}</small></span></li>`).join('')
+    || '<li><span class="n" style="color:var(--ok)">¡Están todos! 🎉</span></li>';
+}
+
+function pintarManual(){
+  const q = $('#buscar').value.trim().toLowerCase(), e = ensayoActual();
+  $('#listaManual').innerHTML = miembros
+    .filter(m => !q || m.nombre.toLowerCase().includes(q) || m.id.includes(q) || m.instrumento.toLowerCase().includes(q))
+    .map(m => {
+      const ya = !!hechos[e + '|' + m.id];
+      return `<li><span class="n">${esc(m.nombre)}<small>${esc(m.instrumento)} · nº ${m.id}</small></span>
+        <button class="chico ${ya ? 'secundario' : 'primario'}" style="width:auto" data-id="${m.id}" ${ya ? 'disabled' : ''}>${ya ? '✓' : 'Marcar'}</button></li>`;
+    }).join('');
+}
+
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ─────────── Eventos ─────────── */
+$('#btnGuardarCfg').onclick = async () => {
+  const nuevo = {url: $('#cfgUrl').value.trim(), pin: $('#cfgPin').value.trim(), yo: $('#cfgYo').value.trim() || 'Sin nombre'};
+  if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(nuevo.url)){ $('#cfgMsg').textContent = 'La URL debe acabar en /exec'; return; }
+  $('#cfgMsg').textContent = 'Conectando…';
+  const anterior = cfg; cfg = nuevo;
+  try{
+    await cargarMiembros();
+    LS.set('cfg', cfg); $('#cfgMsg').textContent = '';
+    ver('#vMain'); pintarListas(); pintarEstado(); sincronizar(true);
+  }catch(err){
+    cfg = anterior; $('#cfgMsg').textContent = '❌ ' + (err.message || 'No se pudo conectar');
+  }
+};
+$('#btnCam').onclick = () => escaneando ? pararCam() : empezarCam();
+$('#btnSync').onclick = () => sincronizar(false);
+$('#btnManual').onclick = () => { if (!ensayoActual()) return aviso('err','⚠','Pon nombre al ensayo','',''); $('#buscar').value=''; pintarManual(); ver('#vManual'); };
+$('#btnVolver').onclick = () => { ver('#vMain'); pintarListas(); };
+$('#buscar').oninput = pintarManual;
+$('#listaManual').onclick = ev => { const b = ev.target.closest('button[data-id]'); if (b){ registrar(b.dataset.id); pintarManual(); } };
+$('#btnAjustes').onclick = () => { $('#cfgUrl').value = cfg.url; $('#cfgPin').value = cfg.pin; $('#cfgYo').value = cfg.yo; ver('#vConfig'); };
+$('#ensayo').onchange = $('#ensayo').oninput = () => { LS.set('ensayoActual', {nombre: ensayoActual(), dia: hoy()}); pintarListas(); };
+$('#ensayo').onblur = () => sincronizar(true);
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('act', x === b));
+  $('#listaPres').classList.toggle('oculto', b.dataset.tab !== 'pres');
+  $('#listaFaltan').classList.toggle('oculto', b.dataset.tab !== 'faltan');
+});
+window.addEventListener('online',  () => { pintarEstado(); sincronizar(true); });
+window.addEventListener('offline', pintarEstado);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) sincronizar(true); else pararCam(); });
+setInterval(() => { if (cola.length) sincronizar(true); }, 20000);
+
+/* ─────────── Arranque ─────────── */
+const guardado = LS.get('ensayoActual', null);
+$('#ensayo').value = (guardado && guardado.dia === hoy() && guardado.nombre) ? guardado.nombre : ('Ensayo ' + hoy());
+pintarEnsayos();
+if (cfg){ ver('#vMain'); pintarListas(); pintarEstado(); sincronizar(true); }
+else ver('#vConfig');
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
