@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#4a1d5e">
+<meta name="theme-color" content="#111111">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Ensayos CJH 2027</title>
@@ -12,8 +12,8 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
   :root{
-    --morado:#4a1d5e; --morado-2:#6b2d85; --dorado:#c9a227; --fondo:#f6f1f8;
-    --texto:#22152a; --suave:#7a6a83; --tarjeta:#fff; --ok:#1e8e4e; --dup:#d48a00; --err:#c0392b;
+    --morado:#111111; --morado-2:#333333; --dorado:#9e9e9e; --fondo:#f4f4f4;
+    --texto:#111111; --suave:#6b6b6b; --tarjeta:#fff; --ok:#1e8e4e; --dup:#d48a00; --err:#c0392b;
     --radio:18px;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -28,25 +28,28 @@
   .pill.pend{background:var(--dup)}
   main{padding:16px;max-width:560px;margin:0 auto}
   .card{background:var(--tarjeta);border-radius:var(--radio);padding:16px;margin-bottom:14px;
-    box-shadow:0 2px 10px rgba(74,29,94,.08)}
+    box-shadow:0 2px 10px rgba(0,0,0,.08)}
   label{font-size:13px;color:var(--suave);display:block;margin:0 0 6px}
-  input,select{width:100%;font-size:17px;padding:12px 14px;border:1.5px solid #ddd0e3;border-radius:12px;
+  input,select{width:100%;font-size:17px;padding:12px 14px;border:1.5px solid #d6d6d6;border-radius:12px;
     background:#fff;color:var(--texto)}
   input:focus,select:focus{outline:none;border-color:var(--morado-2)}
   .fila{display:flex;gap:10px}
   .fila>*{flex:1}
   button{font:inherit;font-size:17px;font-weight:600;border:0;border-radius:14px;padding:14px 16px;cursor:pointer}
   .primario{background:var(--morado);color:#fff;width:100%}
-  .secundario{background:#ece3f1;color:var(--morado)}
+  .secundario{background:#ececec;color:var(--morado)}
   .chico{font-size:14px;padding:9px 12px;border-radius:10px}
   #lector{width:100%;border-radius:var(--radio);overflow:hidden;background:#000;aspect-ratio:1/1;position:relative}
-  #lector video{object-fit:cover}
+  #lector video{width:100%;height:100%;object-fit:cover;display:block}
+  #camMsg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;text-align:center;padding:30px;font-size:15px;background:#111111}
+  .lista li.toca{cursor:pointer}
+  .x{color:var(--err);font-size:13px;font-weight:600}
   #marco{position:absolute;inset:18%;border:3px solid rgba(255,255,255,.85);border-radius:22px;pointer-events:none;
     box-shadow:0 0 0 999px rgba(0,0,0,.25)}
   .contador{display:flex;justify-content:space-between;align-items:baseline}
   .contador b{font-size:34px;color:var(--morado)}
   .lista{list-style:none;margin:0;padding:0}
-  .lista li{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f0e8f4}
+  .lista li{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #eeeeee}
   .lista li:last-child{border-bottom:0}
   .lista .n{flex:1}
   .lista .n small{display:block;color:var(--suave);font-size:12px}
@@ -104,12 +107,14 @@
     </div>
 
     <div class="card" style="padding:10px">
-      <div id="lector"><div id="marco"></div></div>
+      <div id="lector"><video id="video" playsinline muted></video><div id="marco"></div><div id="camMsg">Pulsa «Empezar a escanear»</div></div>
+      <input type="file" id="foto" accept="image/*" capture="environment" class="oculto">
       <div class="fila" style="margin-top:10px">
         <button class="primario" id="btnCam">📷 Empezar a escanear</button>
       </div>
       <div class="fila" style="margin-top:8px">
-        <button class="secundario chico" id="btnManual">⌨️ Marcar a mano</button>
+        <button class="secundario chico" id="btnFoto">📸 Foto</button>
+        <button class="secundario chico" id="btnManual">⌨️ A mano</button>
         <button class="secundario chico" id="btnSync">🔄 Sincronizar</button>
       </div>
     </div>
@@ -146,7 +151,7 @@
 
 <div id="flash" class="oculto"><div class="ico"></div><div class="nom"></div><div class="ins"></div><div class="msg"></div></div>
 
-<script src="vendor/html5-qrcode.min.js"></script>
+<script src="vendor/jsQR.js"></script>
 <script>
 "use strict";
 /* ─────────── Estado local (todo se guarda en el móvil y se sube cuando hay red) ─────────── */
@@ -159,7 +164,7 @@ let miembros = LS.get('miembros', []);          // [{id,nombre,instrumento}]
 let cola     = LS.get('cola', []);              // registros pendientes de subir
 let hechos   = LS.get('hechos', {});            // {"ensayo|id": {ts, sync:bool}}
 let ensayos  = LS.get('ensayos', []);           // nombres usados
-let scanner  = null, escaneando = false, bloqueo = false, sincronizando = false;
+let stream   = null, escaneando = false, bloqueo = false, sincronizando = false;
 
 const $ = s => document.querySelector(s);
 const mapa = () => Object.fromEntries(miembros.map(m => [m.id, m]));
@@ -209,6 +214,7 @@ async function sincronizar(silencioso){
       cola = cola.filter(it => !(it.uid in res));
       lote.forEach(it => {
         const k = it.ensayo + '|' + it.id;
+        if (it.op === 'baja') return;
         if (res[it.uid] === 'ok' || res[it.uid] === 'duplicado') { if (hechos[k]) hechos[k].sync = true; }
         else if (res[it.uid]) delete hechos[k]; // desconocido / error → se quita
       });
@@ -218,7 +224,13 @@ async function sincronizar(silencioso){
     const e = ensayoActual();
     if (e){
       const j = await api({action: 'ensayo', ensayo: e});
-      j.ids.forEach(id => { const k = e + '|' + id; if (!hechos[k]) hechos[k] = {ts: Date.now(), sync: true}; else hechos[k].sync = true; });
+      const enHoja = new Set(j.ids);
+      const altasPend = new Set(cola.filter(it => it.op !== 'baja' && it.ensayo === e).map(it => it.id));
+      const bajasPend = new Set(cola.filter(it => it.op === 'baja' && it.ensayo === e).map(it => it.id));
+      Object.keys(hechos).forEach(k => {                       // quitado desde otro móvil o en la hoja
+        if (k.startsWith(e + '|')){ const id = k.slice(e.length + 1); if (!enHoja.has(id) && !altasPend.has(id)) delete hechos[k]; }
+      });
+      enHoja.forEach(id => { if (bajasPend.has(id)) return; const k = e + '|' + id; if (!hechos[k]) hechos[k] = {ts: Date.now(), sync: true}; else hechos[k].sync = true; });
       LS.set('hechos', hechos);
     }
     if (!silencioso) aviso('ok', '✓', 'Sincronizado', '', 'Todo guardado en la hoja');
@@ -251,21 +263,90 @@ function registrar(idBruto){
 }
 
 /* ─────────── Cámara ─────────── */
+const lienzo = document.createElement('canvas'), c2d = lienzo.getContext('2d', {willReadFrequently: true});
+const detector = ('BarcodeDetector' in window) ? (() => { try{ return new BarcodeDetector({formats: ['qr_code']}); }catch(_){ return null; } })() : null;
+
+function camMsg(t){ $('#camMsg').textContent = t; $('#camMsg').classList.toggle('oculto', !t); }
+
 async function empezarCam(){
   if (!ensayoActual()){ aviso('err', '⚠', 'Pon nombre al ensayo', '', ''); return; }
-  scanner = scanner || new Html5Qrcode('lector', {verbose: false});
+  if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    camMsg('La cámara solo funciona abriendo la app desde su web https (GitHub Pages), no como archivo ni en vista previa. Mientras, usa 📸 Foto.');
+    return;
+  }
+  camMsg('Abriendo cámara…');
   try{
-    await scanner.start({facingMode: 'environment'}, {fps: 12, qrbox: (w,h) => { const s = Math.floor(Math.min(w,h)*0.64); return {width:s, height:s}; }},
-      txt => { if (bloqueo) return; bloqueo = true; registrar(txt); setTimeout(() => bloqueo = false, 1600); },
-      () => {});
-    escaneando = true; $('#btnCam').textContent = '⏸ Parar cámara';
-  }catch(err){
-    aviso('err', '📷', 'No se pudo abrir la cámara', '', 'Da permiso de cámara al navegador (la web debe abrirse con https)');
+    try{ stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: {ideal: 'environment'}, width: {ideal: 1280}, height: {ideal: 720}}, audio: false}); }
+    catch(e){ if (e.name === 'NotAllowedError') throw e; stream = await navigator.mediaDevices.getUserMedia({video: true, audio: false}); }
+    const v = $('#video'); v.srcObject = stream; v.setAttribute('playsinline', ''); v.muted = true;
+    await v.play();
+    escaneando = true; camMsg(''); $('#btnCam').textContent = '⏸ Parar cámara';
+    bucle();
+  }catch(e){
+    pararCam();
+    const txt = {
+      NotAllowedError: 'Permiso de cámara denegado. Toca el candado/«aA» junto a la dirección › Cámara › Permitir, y recarga.',
+      NotFoundError: 'No se encuentra ninguna cámara en este dispositivo.',
+      NotReadableError: 'Otra app está usando la cámara. Ciérrala y vuelve a intentarlo.',
+      OverconstrainedError: 'La cámara no admite la configuración pedida.'
+    }[e.name] || ('No se pudo abrir la cámara (' + (e.name || e.message) + ').');
+    camMsg(txt + ' Puedes usar 📸 Foto.');
   }
 }
-async function pararCam(){
-  if (scanner && escaneando){ try{ await scanner.stop(); }catch(_){} }
-  escaneando = false; $('#btnCam').textContent = '📷 Empezar a escanear';
+
+async function leerQR(fuente, w, h){
+  if (detector){ try{ const r = await detector.detect(fuente); if (r.length) return r[0].rawValue; }catch(_){} }
+  const esc_ = Math.min(1, 720 / Math.max(w, h));           // reducir para ir rápido
+  lienzo.width = Math.round(w * esc_); lienzo.height = Math.round(h * esc_);
+  c2d.drawImage(fuente, 0, 0, lienzo.width, lienzo.height);
+  const img = c2d.getImageData(0, 0, lienzo.width, lienzo.height);
+  const r = jsQR(img.data, img.width, img.height, {inversionAttempts: 'attemptBoth'});
+  return r ? r.data : null;
+}
+
+async function bucle(){
+  const v = $('#video');
+  while (escaneando){
+    if (v.readyState >= 2 && !bloqueo){
+      const txt = await leerQR(v, v.videoWidth, v.videoHeight);
+      if (txt && escaneando){ bloqueo = true; registrar(txt); setTimeout(() => bloqueo = false, 1600); }
+    }
+    await new Promise(r => setTimeout(r, 120));
+  }
+}
+
+function pararCam(){
+  escaneando = false;
+  if (stream){ stream.getTracks().forEach(t => t.stop()); stream = null; }
+  const v = document.getElementById('video'); if (v) v.srcObject = null;
+  const b = document.getElementById('btnCam'); if (b) b.textContent = '📷 Empezar a escanear';
+  if (document.getElementById('camMsg') && !$('#camMsg').textContent) camMsg('Pulsa «Empezar a escanear»');
+}
+
+async function leerFoto(file){
+  if (!file) return;
+  const url = URL.createObjectURL(file), img = new Image();
+  img.onload = async () => {
+    const txt = await leerQR(img, img.naturalWidth, img.naturalHeight);
+    URL.revokeObjectURL(url);
+    if (txt) registrar(txt); else aviso('err', '✕', 'No se ve ningún QR', '', 'Haz la foto más cerca y con luz');
+  };
+  img.src = url;
+}
+
+/* ─────────── Desmarcar ─────────── */
+function desmarcar(id){
+  const e = ensayoActual(), k = e + '|' + id, m = mapa()[id] || {nombre: id};
+  if (!hechos[k]) return;
+  if (!confirm(`¿Quitar la asistencia de ${m.nombre} en «${e}»?`)) return;
+  const pendiente = cola.findIndex(it => it.op !== 'baja' && it.ensayo === e && it.id === id);
+  if (pendiente >= 0) cola.splice(pendiente, 1);                 // aún no se había subido: basta con quitarlo
+  else cola.push({uid: Date.now() + '-b-' + id + '-' + Math.random().toString(36).slice(2,6), op: 'baja', id, ensayo: e, ts: Date.now()});
+  delete hechos[k];
+  LS.set('hechos', hechos); LS.set('cola', cola);
+  aviso('dup', '↩', m.nombre, '', 'Asistencia quitada');
+  pintarListas(); pintarEstado(); if (!$('#vManual').classList.contains('oculto')) pintarManual();
+  setTimeout(() => sincronizar(true), 500);
 }
 
 /* ─────────── Interfaz ─────────── */
@@ -314,7 +395,7 @@ function pintarListas(){
   $('#listaPres').innerHTML = pres.map(p => {
     const m = mp[p.id] || {nombre: p.id, instrumento: ''};
     const h = new Date(p.ts).toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'});
-    return `<li><span class="dot ${p.sync ? '' : 'pend'}"></span><span class="n">${esc(m.nombre)}<small>${esc(m.instrumento)} · ${h}</small></span></li>`;
+    return `<li class="toca" data-id="${p.id}"><span class="dot ${p.sync ? '' : 'pend'}"></span><span class="n">${esc(m.nombre)}<small>${esc(m.instrumento)} · ${h}</small></span><span class="x">Quitar</span></li>`;
   }).join('') || '<li><span class="n" style="color:var(--suave)">Nadie todavía</span></li>';
   $('#listaFaltan').innerHTML = miembros.filter(m => !setPres.has(m.id))
     .sort((a, b) => a.instrumento.localeCompare(b.instrumento) || a.nombre.localeCompare(b.nombre))
@@ -329,7 +410,7 @@ function pintarManual(){
     .map(m => {
       const ya = !!hechos[e + '|' + m.id];
       return `<li><span class="n">${esc(m.nombre)}<small>${esc(m.instrumento)} · nº ${m.id}</small></span>
-        <button class="chico ${ya ? 'secundario' : 'primario'}" style="width:auto" data-id="${m.id}" ${ya ? 'disabled' : ''}>${ya ? '✓' : 'Marcar'}</button></li>`;
+        <button class="chico ${ya ? 'secundario' : 'primario'}" style="width:auto" data-id="${m.id}" data-ya="${ya ? 1 : ''}">${ya ? '✓ Quitar' : 'Marcar'}</button></li>`;
     }).join('');
 }
 
@@ -354,7 +435,10 @@ $('#btnSync').onclick = () => sincronizar(false);
 $('#btnManual').onclick = () => { if (!ensayoActual()) return aviso('err','⚠','Pon nombre al ensayo','',''); $('#buscar').value=''; pintarManual(); ver('#vManual'); };
 $('#btnVolver').onclick = () => { ver('#vMain'); pintarListas(); };
 $('#buscar').oninput = pintarManual;
-$('#listaManual').onclick = ev => { const b = ev.target.closest('button[data-id]'); if (b){ registrar(b.dataset.id); pintarManual(); } };
+$('#listaManual').onclick = ev => { const b = ev.target.closest('button[data-id]'); if (!b) return; if (b.dataset.ya) desmarcar(b.dataset.id); else { registrar(b.dataset.id); pintarManual(); } };
+$('#listaPres').onclick = ev => { const li = ev.target.closest('li[data-id]'); if (li) desmarcar(li.dataset.id); };
+$('#btnFoto').onclick = () => { if (!ensayoActual()) return aviso('err','⚠','Pon nombre al ensayo','',''); pararCam(); $('#foto').value = ''; $('#foto').click(); };
+$('#foto').onchange = ev => leerFoto(ev.target.files[0]);
 $('#btnAjustes').onclick = () => { $('#cfgUrl').value = cfg.url; $('#cfgPin').value = cfg.pin; $('#cfgYo').value = cfg.yo; ver('#vConfig'); };
 $('#ensayo').onchange = $('#ensayo').oninput = () => { LS.set('ensayoActual', {nombre: ensayoActual(), dia: hoy()}); pintarListas(); };
 $('#ensayo').onblur = () => sincronizar(true);

@@ -21,13 +21,15 @@ Apps Script → *Implementar › Nueva implementación › Aplicación web*
 Sube todo menos `apps-script/` al repo → *Settings › Pages › Branch: main / root*. Tendrás `https://TU-USUARIO.github.io/ENSAYOS-CJH-2027/`.
 
 **4. En cada móvil**
-Abre la URL → pega la URL `/exec`, el PIN y tu nombre → *Añadir a pantalla de inicio*.
+Abre la URL **desde Chrome o Safari, en su dirección https** (no como archivo descargado: ahí el navegador bloquea la cámara) → pega la URL `/exec`, el PIN y tu nombre → *Añadir a pantalla de inicio*.
 
 **5. QR**
 Abre `…/qr.html` en el ordenador → *Cargar desde la hoja* → Imprimir (9 tarjetas por A4, tamaño carta). Plastifica.
 
 ## Uso en el ensayo
 - El nombre del ensayo se pone solo (`Ensayo dd/mm/aaaa`). Si hay dos móviles validando, que usen **el mismo nombre**.
+- **Para quitar** a alguien marcado por error: tócalo en la lista de Presentes (o «✓ Quitar» en «A mano»).
+- Si la cámara falla, **📸 Foto** abre la cámara del móvil y lee el QR de la foto.
 - Verde = registrado · Naranja = ya estaba · Rojo = QR desconocido.
 - Pestaña **Faltan** para ver quién no ha venido. *Marcar a mano* si alguien olvida el QR.
 
