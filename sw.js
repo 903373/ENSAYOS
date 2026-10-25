@@ -1,7 +1,7 @@
 // Cachea la app para que abra sin cobertura. Las llamadas a Google van siempre por red.
-const CACHE = 'ensayos-v4';
+const CACHE = 'ensayos-v5';
 const ARCHIVOS = ['./', './index.html', './qr.html', './manifest.json', './icon.svg', './icon-192.png', './icon-512.png',
-  './vendor/jsQR.js', './vendor/qrcode.js'];
+  './vendor/qrcode.js'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARCHIVOS)).then(() => self.skipWaiting()));
