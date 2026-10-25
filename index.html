@@ -10289,16 +10289,24 @@ function ver(id){
 }
 
 /* ─────────── Red con Apps Script ─────────── */
-async function api(body){
-  const r = await fetch(cfg.url, {
-    method: 'POST',
-    headers: {'Content-Type': 'text/plain;charset=utf-8'}, // evita preflight CORS
-    body: JSON.stringify({...body, pin: cfg.pin}),
-    redirect: 'follow'
-  });
-  const j = await r.json();
-  if (!j.ok) throw new Error(j.error || 'Error del servidor');
-  return j;
+async function api(body, espera = 30000){
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), espera);   // Google a veces tarda en "despertar"
+  try{
+    const r = await fetch(cfg.url, {
+      method: 'POST',
+      headers: {'Content-Type': 'text/plain;charset=utf-8'}, // evita preflight CORS
+      body: JSON.stringify({...body, pin: cfg.pin}),
+      redirect: 'follow', signal: ctl.signal
+    });
+    let j;
+    try{ j = await r.json(); }catch(_){ throw new Error('Respuesta rara de Google (¿falta «Nueva versión» en la implementación?)'); }
+    if (!j.ok) throw new Error(j.error || 'Error del servidor');
+    return j;
+  }catch(e){
+    if (e.name === 'AbortError') throw new Error('Google no responde (tarda demasiado)');
+    if (e.name === 'TypeError') throw new Error('Sin conexión');
+    throw e;
+  }finally{ clearTimeout(t); }
 }
 
 async function cargarMiembros(){
@@ -10306,42 +10314,47 @@ async function cargarMiembros(){
   miembros = j.miembros; LS.set('miembros', miembros);
 }
 
+let fallos = 0, ultimaSync = LS.get('ultimaSync', 0), ultimoError = '', reintento = null;
+
 async function sincronizar(silencioso){
   if (sincronizando || !cfg) return;
+  clearTimeout(reintento);
   sincronizando = true; pintarEstado();
   try{
-    if (navigator.onLine === false) throw new Error('offline');
-    if (cola.length){
-      const lote = cola.slice(0, 200);
-      const j = await api({action: 'lote', items: lote, validador: cfg.yo});
-      const res = Object.fromEntries(j.resultados.map(r => [r.uid, r.estado]));
-      cola = cola.filter(it => !(it.uid in res));
-      lote.forEach(it => {
-        const k = it.ensayo + '|' + it.id;
-        if (it.op === 'baja') return;
-        if (res[it.uid] === 'ok' || res[it.uid] === 'duplicado') { if (hechos[k]) hechos[k].sync = true; }
-        else if (res[it.uid]) delete hechos[k]; // desconocido / error → se quita
-      });
-      LS.set('cola', cola); LS.set('hechos', hechos);
-    }
-    // la hoja manda: se rehace el estado local con lo que hay en ella + lo pendiente de subir
-    const st = await api({action: 'estado'});
-    miembros = st.miembros; LS.set('miembros', miembros);
+    if (navigator.onLine === false) throw new Error('Sin conexión');
+    // UNA sola petición: sube lo pendiente y trae el estado completo de la hoja
+    const lote = cola.slice(0, 200);
+    const j = await api({action: 'lote', items: lote, validador: cfg.yo});
+    const res = Object.fromEntries((j.resultados || []).map(r => [r.uid, r.estado]));
+    const rechazados = lote.filter(it => it.op !== 'baja' && res[it.uid] && res[it.uid] !== 'ok' && res[it.uid] !== 'duplicado');
+    cola = cola.filter(it => !(it.uid in res));
+    LS.set('cola', cola);
+
+    // la hoja manda: estado = lo que hay en ella + lo que aún queda por subir
+    miembros = j.miembros; LS.set('miembros', miembros);
     const nuevo = {};
-    st.asistencia.forEach(f => { const k = f.ensayo + '|' + f.id; nuevo[k] = {ts: (hechos[k] && hechos[k].ts) || Date.now(), sync: true}; });
+    j.asistencia.forEach(f => { const k = f.ensayo + '|' + f.id; nuevo[k] = {ts: (hechos[k] && hechos[k].ts) || Date.now(), sync: true}; });
     cola.forEach(it => {
       const k = it.ensayo + '|' + it.id;
       if (it.op === 'baja') delete nuevo[k]; else nuevo[k] = {ts: it.ts, sync: false};
     });
     hechos = nuevo; LS.set('hechos', hechos);
-    ensayos = [...new Set([...cola.map(it => it.ensayo), ...st.asistencia.map(f => f.ensayo).reverse()])].slice(0, 30);
+    ensayos = [...new Set([...cola.map(it => it.ensayo), ...j.asistencia.map(f => f.ensayo).reverse()])].slice(0, 30);
     LS.set('ensayos', ensayos); pintarEnsayos();
-    if (!silencioso) aviso('ok', '✓', 'Sincronizado', '', 'Todo guardado en la hoja');
+
+    fallos = 0; ultimoError = ''; ultimaSync = Date.now(); LS.set('ultimaSync', ultimaSync);
+    if (rechazados.length) aviso('err', '✕', `${rechazados.length} QR no válidos`, '', 'No están en Miembros: no se han guardado');
+    else if (!silencioso) aviso('ok', '✓', 'Sincronizado', '', 'Todo guardado en la hoja');
   }catch(err){
-    if (!silencioso) aviso('err', '⚠', 'Sin conexión', '', 'Se guarda en el móvil y se subirá luego');
+    fallos++; ultimoError = err.message || 'Error';
+    if (!silencioso) aviso('err', '⚠', 'No se pudo sincronizar', '', ultimoError + ' · Está guardado en el móvil, se reintentará solo');
   }finally{
     sincronizando = false; pintarEstado(); pintarListas();
-    if (cola.length) setTimeout(() => sincronizar(true), 1500); // quedan más
+    if (cola.length){
+      // si quedan pendientes: enseguida si fue bien, y si falla cada vez más espaciado (5 s, 10 s, 20 s… máx. 2 min)
+      const espera = fallos ? Math.min(120000, 5000 * 2 ** (fallos - 1)) : 1000;
+      reintento = setTimeout(() => sincronizar(true), espera);
+    }
   }
 }
 
@@ -10510,14 +10523,23 @@ function pitido(){
   }catch(_){}
 }
 
+function haceCuanto(t){
+  if (!t) return 'nunca';
+  const m = Math.round((Date.now() - t) / 60000);
+  return m < 1 ? 'ahora' : m < 60 ? `hace ${m} min` : new Date(t).toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'});
+}
 function pintarEstado(){
   const p = $('#estadoRed');
   p.className = 'pill';
-  if (sincronizando){ p.textContent = '⟳ Subiendo…'; return; }
+  p.title = ultimoError || ('Última sincronización: ' + haceCuanto(ultimaSync));
+  if (sincronizando){ p.textContent = '⟳ Sincronizando…'; return; }
   if (navigator.onLine === false){ p.classList.add('off'); p.textContent = `Sin red · ${cola.length} pend.`; return; }
-  if (cola.length){ p.classList.add('pend'); p.textContent = `${cola.length} pendientes`; return; }
-  p.textContent = '✓ Guardado';
+  if (cola.length){ p.classList.add(fallos ? 'off' : 'pend'); p.textContent = `${cola.length} pendientes${fallos ? ' · reintentando' : ''}`; return; }
+  p.textContent = '✓ ' + haceCuanto(ultimaSync);
 }
+$('#estadoRed').onclick = () => { fallos = 0; sincronizar(false); };
+$('#estadoRed').style.cursor = 'pointer';
+setInterval(pintarEstado, 30000);
 
 function pintarEnsayos(){
   $('#ensayosPrevios').innerHTML = ensayos.map(e => `<option value="${esc(e)}">`).join('');
@@ -10585,10 +10607,10 @@ document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
   $('#listaPres').classList.toggle('oculto', b.dataset.tab !== 'pres');
   $('#listaFaltan').classList.toggle('oculto', b.dataset.tab !== 'faltan');
 });
-window.addEventListener('online',  () => { pintarEstado(); sincronizar(true); });
+window.addEventListener('online',  () => { fallos = 0; pintarEstado(); sincronizar(true); });
 window.addEventListener('offline', pintarEstado);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) sincronizar(true); else pararCam(); });
-setInterval(() => { if (cola.length) sincronizar(true); }, 20000);
+setInterval(() => { if (!document.hidden) sincronizar(true); }, 120000);   // ver lo que marcan otros móviles
 
 /* ─────────── Arranque ─────────── */
 const guardado = LS.get('ensayoActual', null);

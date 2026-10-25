@@ -7,8 +7,8 @@ App web para pasar lista escaneando QR con el móvil. Datos en Google Sheets. Fu
 **1. Hoja de cálculo**
 1. Crea un Google Sheets nuevo → *Extensiones › Apps Script*.
 2. Borra lo que haya, pega `apps-script/Code.gs` y **cambia el `PIN`** de la línea 6. Guarda.
-3. Vuelve a la hoja y recarga: aparece el menú **🎺 Cofradía** → *Preparar hojas* (acepta los permisos).
-4. En la pestaña **Miembros** pon a la gente (borra los ejemplos). Deja el ID vacío y usa *🎺 Cofradía › Generar IDs*.
+3. Vuelve a la hoja y recarga: aparece el menú **Cofradía** → *Preparar hojas* (acepta los permisos).
+4. En la pestaña **Miembros** pon a la gente (borra los ejemplos). Deja el ID vacío y usa *Cofradía › Generar IDs*.
 
 **2. Publicar el script**
 Apps Script → *Implementar › Nueva implementación › Aplicación web*
@@ -38,7 +38,7 @@ Abre `…/qr.html` en el ordenador → *Cargar desde la hoja* → Imprimir (9 ta
 - **Asistencia**: registro con fecha, hora y quién validó.
 - **Matriz**: tabla persona × ensayo con ✓ (se actualiza sola).
 
-Si algo sale raro en Resumen o Matriz: *🎺 Cofradía › Reparar Resumen y Matriz*.
+Si algo sale raro en Resumen o Matriz: *Cofradía › Reparar Resumen y Matriz*.
 Para borrar un ensayo entero: borra sus filas en **Asistencia**; desaparece de los móviles al sincronizar.
 
 Dar de baja a alguien: marca la casilla *Baja* en Miembros (su historial se conserva). Casilla vacía = activo.
