@@ -21,9 +21,9 @@
      padding:4mm;display:flex;flex-direction:column;align-items:center;text-align:center;break-inside:avoid;
      position:relative;overflow:hidden}
   .t::before{content:"";position:absolute;top:0;left:0;right:0;height:17mm;background:var(--morado);border-bottom:1.2mm solid var(--dorado)}
-  .t .cab{position:relative;color:var(--suave);font-size:7pt;font-weight:700;letter-spacing:.6px;margin-top:5.6mm;white-space:nowrap}
+  .t .cab{position:relative;color:var(--suave);font-size:7pt;font-weight:700;letter-spacing:.6px;margin-top:1.5mm;white-space:nowrap}
   .t .logo{position:relative;width:52mm;height:auto;margin-top:-1mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .t svg{width:46mm;height:46mm;margin-top:1.5mm}
+  .t svg{width:47mm;height:47mm;margin-top:8.5mm}
   .t .nom{font-weight:700;font-size:11.5pt;margin-top:2mm;line-height:1.15}
   .t .num{font:700 8pt ui-monospace,monospace;color:var(--suave);margin-top:1mm}
   .t, .t::before{-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -66,10 +66,9 @@ function generar(lista){
   $('#hojas').innerHTML = lista.map(m => `
     <div class="t">
       <img class="logo" src="${LOGO}" alt="">
-      <div class="cab">SECCIÓN DE INSTRUMENTOS · 2027</div>
       ${svgQR('CJH:' + m.id)}
       <div class="nom">${esc(m.nombre)}</div>
-      <div class="num">nº ${esc(m.id)}</div>
+      <div class="cab">SECCIÓN DE INSTRUMENTOS · 2027</div>
     </div>`).join('');
   $('#msg').textContent = `${lista.length} tarjetas (9 por folio A4).`;
 }
